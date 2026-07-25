@@ -646,6 +646,22 @@ function setupExtractForm() {
         if (extractSubmitBtn) {
             extractSubmitBtn.disabled = !audioOrAnyFmtSelected;
         }
+
+        if (extractCoverFile) {
+            const enableCover = (audioFmt === 'm4b');
+            extractCoverFile.disabled = !enableCover;
+            if (extractCoverUploadZone) {
+                extractCoverUploadZone.style.opacity = enableCover ? '1' : '0.5';
+                extractCoverUploadZone.style.pointerEvents = enableCover ? 'auto' : 'none';
+            }
+            if (!enableCover) {
+                extractCoverFile.value = '';
+                if (extractCoverFileName) {
+                    extractCoverFileName.style.display = 'none';
+                    extractCoverFileName.textContent = '';
+                }
+            }
+        }
     }
 
     if (extractAudioFormat && extractMp4Checkbox) {

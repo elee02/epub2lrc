@@ -453,7 +453,7 @@ def _convert_to_m4a(
     metadata: dict[str, str],
     cover_art: Path | None = None,
 ) -> None:
-    """Convert input audio to an M4A file with metadata and cover art (no chapter markers).
+    """Convert input audio to an M4A file with metadata (no chapter markers, no cover art).
 
     Produces a standard AAC-in-MP4 container (.m4a) using the 'ipod' format atom
     for maximum compatibility with music players like Poweramp and iTunes.
@@ -483,34 +483,17 @@ def _convert_to_m4a(
 
         cmd = ["ffmpeg", "-y"]
         cmd.extend(["-i", str(input_audio)])
-
-        if cover_art and cover_art.exists():
-            cmd.extend(["-i", str(cover_art)])
-
         cmd.extend(["-i", str(meta_file_path)])
 
-        if cover_art and cover_art.exists():
-            cmd.extend([
-                "-map", "0:a",
-                "-map", "1:v",
-                "-map_metadata", "2",
-            ])
-        else:
-            cmd.extend([
-                "-map", "0:a",
-                "-map_metadata", "1",
-            ])
+        cmd.extend([
+            "-map", "0:a",
+            "-map_metadata", "1",
+        ])
 
         if is_aac:
             cmd.extend(["-c:a", "copy"])
         else:
             cmd.extend(["-c:a", "aac", "-b:a", "64k"])
-
-        if cover_art and cover_art.exists():
-            cmd.extend([
-                "-c:v", "mjpeg",
-                "-disposition:v:1", "attached_pic"
-            ])
 
         cmd.extend(["-movflags", "+faststart"])
         cmd.extend(["-f", "mp4"])
@@ -992,19 +975,20 @@ def epub_to_audio_subtitles(
                     audio_out_ext = ".m4a" if audio_format == "m4a" else ".m4b"
                     audio_out_path = output_dir / f"{chapter_name}{audio_out_ext}"
                     
-                    # Resolve cover art
+                    # Resolve cover art (only for formats that embed cover art, e.g. .m4b)
                     temp_cover = None
-                    if cover_art and Path(cover_art).exists():
-                        temp_cover = Path(cover_art)
-                    else:
-                        extracted_cover_path = output_dir / f"extracted_cover_{idx}.jpg"
-                        if _extract_epub_cover(epub_path, extracted_cover_path):
-                            temp_cover = extracted_cover_path
-                    
                     processed_cover = None
-                    if temp_cover:
-                        processed_cover = output_dir / f"cover_{idx}_processed.jpg"
-                        processed_cover = _process_cover_art(temp_cover, processed_cover)
+                    if audio_format != "m4a":
+                        if cover_art and Path(cover_art).exists():
+                            temp_cover = Path(cover_art)
+                        else:
+                            extracted_cover_path = output_dir / f"extracted_cover_{idx}.jpg"
+                            if _extract_epub_cover(epub_path, extracted_cover_path):
+                                temp_cover = extracted_cover_path
+                        
+                        if temp_cover:
+                            processed_cover = output_dir / f"cover_{idx}_processed.jpg"
+                            processed_cover = _process_cover_art(temp_cover, processed_cover)
 
                     chapter_metadata = {
                         "title": chapter.title,
@@ -1026,7 +1010,6 @@ def epub_to_audio_subtitles(
                             input_audio=temp_audio_out,
                             output_path=audio_out_path,
                             metadata=chapter_metadata,
-                            cover_art=processed_cover
                         )
                     else:
                         _convert_to_m4b(
@@ -1116,17 +1099,18 @@ def epub_to_audio_subtitles(
         
         _log(f"Converting merged audio to {merged_audio_ext.upper().lstrip('.')} audiobook...")
         temp_cover = None
-        if cover_art and Path(cover_art).exists():
-            temp_cover = Path(cover_art)
-        else:
-            extracted_cover_path = output_dir / "extracted_cover_merged.jpg"
-            if _extract_epub_cover(epub_path, extracted_cover_path):
-                temp_cover = extracted_cover_path
-        
         processed_cover = None
-        if temp_cover:
-            processed_cover = output_dir / "cover_merged_processed.jpg"
-            processed_cover = _process_cover_art(temp_cover, processed_cover)
+        if audio_format != "m4a":
+            if cover_art and Path(cover_art).exists():
+                temp_cover = Path(cover_art)
+            else:
+                extracted_cover_path = output_dir / "extracted_cover_merged.jpg"
+                if _extract_epub_cover(epub_path, extracted_cover_path):
+                    temp_cover = extracted_cover_path
+            
+            if temp_cover:
+                processed_cover = output_dir / "cover_merged_processed.jpg"
+                processed_cover = _process_cover_art(temp_cover, processed_cover)
 
         merged_metadata = {
             "title": book_title,
@@ -1143,7 +1127,6 @@ def epub_to_audio_subtitles(
                 input_audio=temp_merged_audio,
                 output_path=merged_audio_out,
                 metadata=merged_metadata,
-                cover_art=processed_cover
             )
         else:
             _convert_to_m4b(

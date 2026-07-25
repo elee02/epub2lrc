@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 import wave
@@ -633,6 +634,42 @@ class ExtractTests(unittest.TestCase):
             self.assertTrue(results[1][0].exists())
             self.assertEqual(results[0][0].suffix, ".m4a")
             self.assertEqual(results[1][0].suffix, ".m4a")
+
+    def test_m4a_no_cover_art(self) -> None:
+        """Test that _convert_to_m4a does not include a video/cover art stream."""
+        from epuboverlay.extract import _convert_to_m4a
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            input_audio = tmp_path / "test.wav"
+            output_m4a = tmp_path / "out.m4a"
+            cover_art = tmp_path / "cover.jpg"
+            cover_art.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)  # dummy jpg
+
+            # Generate 1s silent WAV
+            with wave.open(str(input_audio), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(24000)
+                w.writeframes(b"\x00" * 48000)
+
+            _convert_to_m4a(
+                input_audio=input_audio,
+                output_path=output_m4a,
+                metadata={"title": "Test"},
+                cover_art=cover_art,
+            )
+            self.assertTrue(output_m4a.exists())
+
+            # Probe video streams in generated m4a file
+            cmd = [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v",
+                "-show_entries", "stream=codec_type",
+                "-of", "csv=p=0",
+                str(output_m4a)
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.assertEqual(res.stdout.strip(), "", "M4A should not contain any video/cover streams")
 
 
 class StreamingWavTests(unittest.TestCase):

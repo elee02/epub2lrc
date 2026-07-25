@@ -575,6 +575,20 @@ export function renderCompletedJobs(completedJobs) {
             if (convertBtn) {
                 convertBtn.disabled = !audioOrAnyFmtSelected;
             }
+
+            const coverArtInput = card.querySelector(`#cover-art-${job.id}`);
+            if (coverArtInput) {
+                const coverArtGroup = coverArtInput.closest('.options-group-sub');
+                const enableCover = (audioFmt === 'm4b');
+                coverArtInput.disabled = !enableCover;
+                if (coverArtGroup) {
+                    coverArtGroup.style.opacity = enableCover ? '1' : '0.5';
+                    coverArtGroup.style.pointerEvents = enableCover ? 'auto' : 'none';
+                }
+                if (!enableCover) {
+                    coverArtInput.value = '';
+                }
+            }
         }
 
         if (audioFmtSelect && mp4Cb) {
