@@ -285,10 +285,11 @@ def estimate_epub_audiobook_duration(epub_path: Path, speed: float = 1.0) -> tup
                 item = manifest_items.get(idref or "")
                 if item is None:
                     continue
-                media_type = item.attrib.get("media-type")
-                if media_type != "application/xhtml+xml":
+                href = item.attrib.get("href", "")
+                media_type = item.attrib.get("media-type", "")
+                mt = media_type.lower().strip()
+                if mt not in ("application/xhtml+xml", "text/html", "application/html", "text/xhtml") and "html" not in mt and not href.endswith((".xhtml", ".html", ".htm")):
                     continue
-                href = item.attrib.get("href")
                 
                 # Normalize zip path
                 zip_href = (opf_dir / href).as_posix()

@@ -57,6 +57,26 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(content.splitlines(), ["[00:00.00] start", "[01:01.24] later"])
 
+    def test_process_element_calibre_divs(self) -> None:
+        import xml.etree.ElementTree as ET
+        from epuboverlay.pipeline import process_element
+
+        html_str = '''<html xmlns="http://www.w3.org/1999/xhtml">
+        <body>
+            <h1>CHAPTER ONE</h1>
+            <div class="calibre1">First paragraph in calibre div.</div>
+            <div class="calibre1">Second paragraph with <span>span text</span> inside.</div>
+            <p>Standard paragraph with <em>em text</em>.</p>
+        </body>
+        </html>'''
+        root = ET.fromstring(html_str)
+        chunks = []
+        process_element(root, lambda: "s1", chunks)
+        texts = [c[1] for c in chunks]
+        self.assertIn("First paragraph in calibre div.", texts)
+        self.assertIn("Second paragraph with span text inside.", texts)
+        self.assertIn("Standard paragraph with em text.", texts)
+
     def test_extract_spine_text_chunks_reads_ordered_documents(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             epub_path = Path(tmpdir) / "sample.epub"

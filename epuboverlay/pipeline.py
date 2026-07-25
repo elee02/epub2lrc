@@ -243,7 +243,8 @@ def extract_chapter_previews(epub_path: str | Path) -> list[dict]:
             item = opf_root.find(f".//{{*}}manifest/{{*}}item[@id='{idref}']")
             if item is not None:
                 media_type = item.attrib.get("media-type")
-                if media_type != "application/xhtml+xml":
+                mt = (media_type or "").lower().strip()
+                if mt not in ("application/xhtml+xml", "text/html", "application/html", "text/xhtml") and "html" not in mt and not href.endswith((".xhtml", ".html", ".htm")):
                     continue
 
             html_path = str((base_dir / href).as_posix())
@@ -517,6 +518,9 @@ def segment_element_text(
         id_to_text_list.append((span_id, sent))
 
 
+SKIP_TAGS = {"head", "script", "style", "title", "meta", "link", "svg", "path"}
+
+
 def process_element(
     element: ET.Element,
     next_id_fn: callable,
@@ -524,8 +528,12 @@ def process_element(
     max_chars: int = 150,
 ) -> None:
     tag_name = clean_tag(element.tag)
+    if tag_name in SKIP_TAGS:
+        return
 
-    if tag_name in LEAF_BLOCKS:
+    is_leaf_candidate = (tag_name in LEAF_BLOCKS) or (not contains_any_block(element))
+
+    if is_leaf_candidate:
         if contains_any_block(element):
             for child in list(element):
                 process_element(child, next_id_fn, id_to_text_list, max_chars)
@@ -1458,9 +1466,13 @@ def generate_media_overlay_epub(
         for itemref in spine_node.findall(".//{*}itemref"):
             idref = itemref.attrib.get("idref")
             item = manifest_items.get(idref or "")
-            if item is None or item.attrib.get("media-type") != "application/xhtml+xml":
+            if item is None:
                 continue
-            href = item.attrib.get("href")
+            href = item.attrib.get("href", "")
+            media_type = item.attrib.get("media-type", "")
+            mt = media_type.lower().strip()
+            if mt not in ("application/xhtml+xml", "text/html", "application/html", "text/xhtml") and "html" not in mt and not href.endswith((".xhtml", ".html", ".htm")):
+                continue
             xhtml_file_path = opf_dir / href
             if not xhtml_file_path.exists():
                 continue

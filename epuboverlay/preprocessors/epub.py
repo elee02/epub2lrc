@@ -21,6 +21,19 @@ HEADING_KEYWORDS_RE = re.compile(
     re.IGNORECASE
 )
 
+def is_html_media_type(media_type: str | None, href: str | None = None) -> bool:
+    """Check if media-type or href extension indicates HTML/XHTML content."""
+    if media_type:
+        mt = media_type.lower().strip()
+        if mt in ("application/xhtml+xml", "text/html", "application/html", "text/xhtml") or "html" in mt:
+            return True
+    if href:
+        ext = Path(href).suffix.lower()
+        if ext in (".xhtml", ".html", ".htm", ".xml"):
+            return True
+    return False
+
+
 def clean_tag(tag: str) -> str:
     """Strip XML namespace prefixes from tags."""
     if tag.startswith("{"):
@@ -577,7 +590,7 @@ def preprocess_epub_workspace(workspace_dir: Path) -> None:
             
         href = item_data["href"]
         item_el = item_data["element"]
-        if item_el.attrib.get("media-type") != "application/xhtml+xml":
+        if not is_html_media_type(item_el.attrib.get("media-type"), href):
             continue
             
         html_path = (opf_dir / href).resolve()
@@ -675,7 +688,7 @@ def preprocess_epub_workspace(workspace_dir: Path) -> None:
                 continue
 
             item_el = manifest_node.find(f".//{{*}}item[@id='{idref}']")
-            if item_el is not None and item_el.attrib.get("media-type") != "application/xhtml+xml":
+            if item_el is not None and not is_html_media_type(item_el.attrib.get("media-type"), href_val):
                 continue
 
             html_file_path = opf_dir / href_val
@@ -810,7 +823,7 @@ class EPUBPreprocessor(BasePreprocessor):
                     continue
                 
                 item = opf_root.find(f".//{{*}}manifest/{{*}}item[@id='{idref}']")
-                if item is not None and item.attrib.get("media-type") != "application/xhtml+xml":
+                if item is not None and not is_html_media_type(item.attrib.get("media-type"), href):
                     continue
                     
                 html_path = _normalize(opf_dir, href)
